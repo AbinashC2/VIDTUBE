@@ -7,7 +7,7 @@ import {
 } from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import jwt from "jsonwebtoken";
-import e from "express";
+import express from "express";
 import mongoose from "mongoose";
 
 const registerUser = asyncHandler(async (req, res) => {
@@ -15,7 +15,7 @@ const registerUser = asyncHandler(async (req, res) => {
 
   //validation
   if (
-    [fullName, username, email, password].some((field) => field?.trim() === "")
+    [fullName, email, username, password].some((field) => field?.trim() === "")
   ) {
     throw new ApiError(400, "All Fields are Required");
   }
@@ -80,7 +80,8 @@ const registerUser = asyncHandler(async (req, res) => {
 
 const generateAccessAndRefreshToken = async (userId) => {
   try {
-    const user = User.findById(userId);
+    const user = await User.findById(userId);
+
     //validation
     if (!user) {
       throw new ApiError(404, "User not found");
@@ -101,9 +102,13 @@ const generateAccessAndRefreshToken = async (userId) => {
 const loginUser = asyncHandler(async (req, res) => {
   //get data from body
   const { email, username, password } = req.body;
+  // console.log(email, username, password);
 
   //validation
   if (!email || !username) {
+    throw new ApiError(400, "Email or username is required");
+  }
+  if (!username) {
     throw new ApiError(400, "Email or username is required");
   }
 
@@ -170,6 +175,9 @@ const logoutUser = asyncHandler(async (req, res) => {
 
 const refreshAccessToken = asyncHandler(async (req, res) => {
   const incomingRefreshToken = req.cookies.refreshAccessToken;
+  // console.log();
+
+  console.log(req.cookies); // To see the cookies in the request
 
   if (!incomingRefreshToken) {
     throw new ApiError(401, "refresh token is Required");
@@ -179,35 +187,44 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
       incomingRefreshToken,
       process.env.REFRESH_TOKEN_SECRET
     );
-    const user = await User.findById(decodedToken?.id);
+    console.log("Decoded Token:", decodedToken);
+
+    const user = await User.findById(decodedToken?._id);
     if (!user) {
-      throw new ApiError(404, "invaild refresh token");
+      console.error("Invalid user with refresh token", decodedToken?._id);
+      throw new ApiError(404, "Invalid refresh token");
     }
 
-    if (incomingRefreshToken !== user?.refreshToken) {
-      throw new ApiError(401, "invaild refresh token");
+    if (incomingRefreshToken === user?.refreshToken) {
+      console.error(
+        "Refresh token mismatch",
+        incomingRefreshToken,
+        user?.refreshToken
+      );
+      throw new ApiError(401, "Invalid refresh token");
     }
 
+    const { accessToken, refreshToken: newRefreshToken } =
+      await generateAccessAndRefreshToken(user._id);
     const options = {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
     };
-    const { accessToken, refreshToken: newRefreshToken } =
-      await generateAccessAndRefreshToken(user._id);
 
     return res
       .status(200)
-      .cookie("accessToken", accessToken, options) //  Indicates if the cookie is accessible only through the HTTP protocol.
-      .cookie("refreshToken", newRefreshToken, options) //Indicates if the cookie should be sent only over HTTPS.
+      .cookie("accessToken", accessToken, options)
+      .cookie("refreshToken", newRefreshToken, options)
       .json(
         new ApiResponse(
           200,
           { accessToken, refreshToken: newRefreshToken },
-          " Access Token refreshed successfully"
+          "Access token refreshed successfully"
         )
       );
   } catch (error) {
-    throw new ApiError(500, "Error while Accessing the refreshing token");
+    console.error("Error refreshing access token:", error.message);
+    console.error(error.stack); // Logs the full stack trace
   }
 });
 
