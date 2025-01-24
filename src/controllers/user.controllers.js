@@ -152,6 +152,12 @@ const loginUser = asyncHandler(async (req, res) => {
 });
 
 const logoutUser = asyncHandler(async (req, res) => {
+  if (!req.user || !req.user._id) {
+    return res
+      .status(400)
+      .json(new ApiResponse(400, {}, "User not authenticated"));
+  }
+
   await User.findByIdAndUpdate(
     req.user._id,
     {
@@ -230,15 +236,29 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
 
 const changeCurrentPassword = asyncHandler(async (req, res) => {
   const { oldPassword, newPassword } = req.body;
-  const user = await User.findById(req.user?._id);
-  const isPasswordValid = await user.isPasswordCorrect(oldPassword);
+  console.log(req.body);
+  console.log(oldPassword, newPassword);
 
+  // Ensure that oldPassword and newPassword are provided
+  if (!oldPassword || !newPassword) {
+    throw new ApiError(401, "Old and New passwords are required");
+  }
+
+  const user = await User.findById(req.user?._id); // Assuming req.user contains the logged-in user's ID
+  // Ensure the user exists
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
+
+  // Check if the old password is correct
+  const isPasswordValid = await user.isPasswordCorrect(oldPassword);
   if (!isPasswordValid) {
     throw new ApiError(401, "Old Password is Incorrect");
   }
 
+  // Set the new password (make sure it is hashed in your model if necessary)
   user.password = newPassword;
-
+  // Save the user with the new password
   await user.save({ validateBeforeSave: false });
 
   return res
@@ -254,7 +274,7 @@ const getCurrentUser = asyncHandler(async (req, res) => {
 
 const updateAccountDetails = asyncHandler(async (req, res) => {
   const { fullName, email } = req.body;
-  if (!fullname) {
+  if (!fullName) {
     throw new ApiError(400, "fullname is required");
   }
   if (!email) {
@@ -270,7 +290,7 @@ const updateAccountDetails = asyncHandler(async (req, res) => {
       },
     },
     { new: true }
-  ).select("-password - refreshToken");
+  ).select("-password -refreshToken");
 
   return res
     .status(200)
@@ -278,7 +298,9 @@ const updateAccountDetails = asyncHandler(async (req, res) => {
 });
 
 const updateUserAvatar = asyncHandler(async (req, res) => {
-  const avatarLocalPath = req.files?.path;
+  const avatarLocalPath = req.file?.path;
+  console.log(req.file);
+
   if (!avatarLocalPath) {
     throw new ApiError(400, "Avatar file is missing");
   }
@@ -296,7 +318,7 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
       },
     },
     { new: true }
-  ).select("-password - refreshToken");
+  ).select("-password -refreshToken");
 
   res
     .status(200)
@@ -323,7 +345,7 @@ const updateUserCoverImage = asyncHandler(async (req, res) => {
       },
     },
     { new: true }
-  ).select("-password - refreshToken");
+  ).select("-password -refreshToken");
 
   res
     .status(200)
@@ -367,7 +389,9 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
         },
         isSubscribed: {
           $cond: {
-            if: { $in: [req.user?._id, "subscribers.subscriber"] },
+            if: { $in: [req.user?._id, "$subscribers.subscriber._id"] },
+            then: true,
+            else: false,
           },
         },
       },
