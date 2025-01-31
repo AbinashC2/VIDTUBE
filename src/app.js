@@ -21,12 +21,15 @@ app.use(cookieParser());
 import healthcheckRouter from "./routes/healthcheck.routes.js";
 import useRouter from "./routes/user.routes.js";
 import tweetRouter from "./routes/tweet.routes.js";
+import videoRouter from "./routes/video.routes.js";
 import { errorHandler } from "./middlewares/error.middleware.js";
 
 //routes
 app.use("/api/v1/healthcheck", healthcheckRouter);
 app.use("/api/v1/users", useRouter);
 app.use("/api/v1/api", tweetRouter);
+app.use("/api/v1/videos", videoRouter);
+
 
 app.use(errorHandler);
 export { app }; // Export app to be used in index.js

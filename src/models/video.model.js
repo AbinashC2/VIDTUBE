@@ -2,10 +2,11 @@ import mongoose, { Schema } from "mongoose";
 import mongooseAggregatePaginate from "mongoose-aggregate-paginate-v2";
 const videoSchema = new Schema(
   {
-    videoFIle: {
+    videoFile: {
       type: String, // cloud url
       required: true,
     },
+
     thumbnail: {
       type: String, // cloud url
       required: true,
@@ -29,10 +30,7 @@ const videoSchema = new Schema(
       type: Boolean,
       default: true,
     },
-    owner: {
-      type: Schema.Types.ObjectId,
-      ref: "User", // Reference to the User model
-    },
+    owner: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
   },
   { timestamps: true }
 );
